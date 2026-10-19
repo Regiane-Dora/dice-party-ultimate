@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎲 DICE PARTY ULTIMATE ANIMADO</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{font-family:'Fredoka',sans-serif;background:radial-gradient(circle at 30% 20%, #2a2a5a, #1a1a2e 40%, #0f0f1e);color:white;text-align:center;margin:0;min-height:100vh;overflow-x:hidden}
+  h1{font-size:2.8rem;text-shadow:0 0 15px #e94560, 0 0 30px #e94560;animation:float 3s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  .card{background:rgba(22,33,62,0.9);padding:28px;border-radius:24px;max-width:480px;margin:18px auto;border:2px solid #e94560;box-shadow:0 0 40px rgba(233,69,96,0.4);backdrop-filter:blur(12px);animation:popIn 0.6s}
+  @keyframes popIn{0%{transform:scale(0.8);opacity:0}100%{transform:scale(1);opacity:1}}
+  input,button{padding:14px;border-radius:14px;border:none;margin:6px;font-size:17px;font-family:inherit}
+  input{width:72%;background:#0f0f1e;color:white;border:1.5px solid #e94560;outline:none}
+  button{background:linear-gradient(45deg,#e94560,#ff7a8a);color:white;cursor:pointer;font-weight:800;transition:0.2s;box-shadow:0 4px 15px rgba(233,69,96,0.4)}
+  button:hover{transform:scale(1.07) translateY(-2px);box-shadow:0 0 25px #e94560}
+  button:active{transform:scale(0.93)}
+  #dado{font-size:110px;margin:15px;display:inline-block;transition:0.3s;filter:drop-shadow(0 0 20px #e94560)}
+  .girando{animation:gira 0.5s infinite cubic-bezier(.68,-0.55,.27,1.55)}
+  @keyframes gira{0%{transform:rotate(0) scale(1)}25%{transform:rotate(90deg) scale(1.4) translateX(20px)}50%{transform:rotate(180deg) scale(0.8)}75%{transform:rotate(270deg) scale(1.4) translateX(-20px)}100%{transform:rotate(360deg) scale(1)}}
+  .surpresa{background:linear-gradient(135deg,#0f3460,#16213e);padding:16px;border-radius:14px;margin-top:16px;min-height:50px;font-size:1.2rem;border:1px solid #ffffff15;transition:0.3s}
+  .surpresa.animada{animation:shake 0.5s}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+  .confetti{position:fixed;width:12px;height:12px;top:-15px;animation:cai 2.2s linear forwards;z-index:9999;border-radius:2px}
+  @keyframes cai{to{transform:translateY(110vh) rotate(720deg) translateX(100px);opacity:0}}
+  .nivel-up{animation:pulseGold 0.8s infinite;color:gold;text-shadow:0 0 15px gold}
+  @keyframes pulseGold{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}
+  #pontos{font-size:1.5rem;font-weight:700}
+  .barra{width:100%;height:12px;background:#0005;border-radius:10px;overflow:hidden;margin:10px 0}
+  .barra-fill{height:100%;background:linear-gradient(90deg,#e94560,#ffd700);width:0%;transition:width 0.6s ease}
+  .controles{position:fixed;top:12px;right:12px;display:flex;gap:8px}
+  .controles button{padding:8px 12px;font-size:14px;background:#16213e}
+</style>
+</head>
+<body>
+<div class="controles">
+  <button onclick="toggleMusica()" id="btnMusica">🎵 Música OFF</button>
+  <button onclick="toggleSom()" id="btnSom">🔊 Som ON</button>
+</div>
+
+<h1>🎲 DICE PARTY ULTIMATE 🎉</h1>
+
+<div class="card" id="login">
+  <h3>👾 Qual seu nome, lenda?</h3>
+  <input id="nome" placeholder="Ex: Super Ana" onkeydown="if(event.key==='Enter') criarJogador()"/>
+  <button onclick="criarJogador()">ENTRAR NA FESTA 🚀</button>
+</div>
+
+<div class="card" id="jogo" style="display:none">
+  <h2 id="boas">Olá!</h2>
+  <div id="dado">🎲</div><br>
+  <button onclick="rolar()" style="font-size:22px;padding:18px 38px">ROLAR DADO! 🎲</button>
+  <p id="pontos">Pontos: 0 | Nível: 1</p>
+  <div class="barra"><div class="barra-fill" id="barra"></div></div>
+  <div id="surpresa" class="surpresa">Role o dado e descubra sua sorte... ✨</div>
+  <div style="margin-top:15px">
+    <button onclick="verRanking()" style="background:#0f3460">🏆 Ranking</button>
+    <button onclick="resetar()" style="background:#333">🔄 Resetar</button>
+  </div>
+  <div id="ranking"></div>
+</div>
+
+<script>
+// === AUDIO ENGINE ===
+let somLigado=true, musicaLigada=false;
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+const ctx = new AudioCtx();
+function bip(freq,tipo,dur,vol=0.3){
+  if(!somLigado) return;
+  if(ctx.state==='suspended') ctx.resume();
+  const o=ctx.createOscillator(), g=ctx.createGain();
+  o.frequency.value=freq; o.type=tipo; g.gain.value=vol;
+  o.connect(g); g.connect(ctx.destination);
+  o.start(); g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+dur); o.stop(ctx.currentTime+dur);
+}
+const S={
+  click:()=>bip(800,'sine',0.12),
+  rolar:()=>{bip(200,'square',0.4,0.2); setTimeout(()=>bip(650,'square',0.2),120)},
+  ponto:()=>{bip(523,'sine',0.12); setTimeout(()=>bip(659,'sine',0.12),90); setTimeout(()=>bip(784,'sine',0.35),180)},
+  ruim:()=>{bip(180,'sawtooth',0.5,0.25); setTimeout(()=>bip(90,'sawtooth',0.6,0.25),150)},
+  level:()=>{bip(400,'sine',0.18); setTimeout(()=>bip(600,'sine',0.18),140); setTimeout(()=>bip(900,'sine',0.5),280); setTimeout(()=>bip(1200,'sine',0.6),420)},
+  confete:()=>{bip(1000,'triangle',0.1,0.15); setTimeout(()=>bip(1500,'triangle',0.2,0.15),80)}
+};
+let musicaInterval=null;
+function toggleSom(){somLigado=!somLigado; document.getElementById('btnSom').innerText=somLigado?'🔊 Som ON':'🔇 Som OFF'; S.click()}
+function toggleMusica(){
+  musicaLigada=!musicaLigada;
+  document.getElementById('btnMusica').innerText=musicaLigada?'🎵 Música ON':'🎵 Música OFF';
+  if(musicaLigada){
+    const notas=[261,329,392,523]; let i=0;
+    musicaInterval=setInterval(()=>{ if(somLigado) bip(notas[i%4],'sine',0.25,0.08); i++; },300);
+  } else clearInterval(musicaInterval);
+  if(somLigado) S.click();
+}
+
+// === EFEITOS ===
+function confete(qtd=35,emoji=false){
+  for(let i=0;i<qtd;i++){
+    const c=document.createElement('div'); c.className='confetti';
+    c.style.left=Math.random()*100+'vw'; c.style.background=`hsl(${Math.random()*360},100%,60%)`;
+    c.style.animationDelay=Math.random()*0.4+'s'; c.style.animationDuration=(1.5+Math.random()*1.2)+'s';
+    if(emoji && Math.random()>0.7){ c.innerText=['🎉','✨','💎','🔥','⭐'][Math.floor(Math.random()*5)]; c.style.background='transparent'; c.style.fontSize='18px'; c.style.width='auto'; c.style.height='auto'; }
+    document.body.appendChild(c); setTimeout(()=>c.remove(),2500);
+  }
+}
+
+// === LÓGICA DO JOGO ===
+let jogador={nome:'', pontos:0, nivel:1, totalRolagens:0};
+const surpresas=[
+  {dado:6, texto:'💎 CRÍTICO! +30 pontos!', pts:30},
+  {dado:5, texto:'🔥 Em chamas! +15 pontos', pts:15},
+  {dado:4, texto:'🍀 Sorte média +8 pontos', pts:8},
+  {dado:3, texto:'😐 Quase lá +3 pontos', pts:3},
+  {dado:2, texto:'😬 Oops... -5 pontos', pts:-5},
+  {dado:1, texto:'💀 Azarou! -10 pontos', pts:-10},
+  {dado:6, texto:'🎊 JACKPOT! +50 pontos + confete!', pts:50, mega:true},
+  {dado:1, texto:'👻 Fantasma roubou 15 pontos!', pts:-15},
+  {dado:5, texto:'🚀 TURBO! Próxima vale x2', pts:12, turbo:true},
+  {dado:3, texto:'🎁 Baú misterioso +20!', pts:20},
+];
+
+let turboAtivo=false;
+function criarJogador(){
+  const nome=document.getElementById('nome').value.trim();
+  if(!nome) return alert('Digite seu nome!');
+  S.click(); jogador.nome=nome; jogador.pontos=0; jogador.nivel=1; jogador.totalRolagens=0;
+  document.getElementById('login').style.display='none';
+  document.getElementById('jogo').style.display='block';
+  document.getElementById('boas').innerText=`Bora jogar, ${nome}! 🔥`;
+  atualizarUI(); confete(25,true); S.ponto();
+}
+
+function rolar(){
+  const el=document.getElementById('dado'); const surEl=document.getElementById('surpresa');
+  el.classList.add('girando'); S.rolar(); surEl.innerText='Girando... 🎲'; surEl.classList.remove('animada');
+  setTimeout(()=>{
+    const dadoNum=Math.floor(Math.random()*6)+1;
+    let sorteio=surpresas.filter(s=>s.dado===dadoNum);
+    sorteio=sorteio[Math.floor(Math.random()*sorteio.length)];
+    let pts=sorteio.pts;
+    if(turboAtivo){ pts*=2; turboAtivo=false; sorteio={...sorteio, texto: sorteio.texto+' (x2 TURBO!)' } }
+    if(sorteio.turbo) turboAtivo=true;
+    
+    jogador.pontos=Math.max(0,jogador.pontos+pts);
+    jogador.totalRolagens++;
+    const novoNivel=Math.floor(jogador.pontos/50)+1;
+
+    el.classList.remove('girando');
+    el.innerText=['','⚀','⚁','⚂','⚃','⚄','⚅'][dadoNum];
+    el.style.transform='scale(1.4)'; setTimeout(()=>el.style.transform='scale(1)',200);
+    
+    surEl.innerText=sorteio.texto; surEl.classList.add('animada');
+    
+    if(pts>0){ S.ponto(); confete(pts>20?50:20, pts>20); }
+    else { S.ruim(); el.style.filter='hue-rotate(180deg)'; setTimeout(()=>el.style.filter='drop-shadow(0 0 20px #e94560)',400); }
+
+    if(novoNivel>jogador.nivel){
+      jogador.nivel=novoNivel; S.level(); confete(80,true);
+      setTimeout(()=>alert(`🎉 LEVEL UP! Você é Nível ${novoNivel}!`),300);
+    }
+    salvarRanking(); atualizarUI();
+  },650);
+}
+
+function atualizarUI(){
+  document.getElementById('pontos').innerText=`Pontos: ${jogador.pontos} | Nível: ${jogador.nivel} | Rolagens: ${jogador.totalRolagens} ${turboAtivo?' | 🚀 TURBO ATIVO!':''}`;
+  document.getElementById('pontos').className=jogador.nivel>=3?'nivel-up':'';
+  document.getElementById('barra').style.width=(jogador.pontos%50)*2+'%';
+}
+
+function salvarRanking(){
+  let rank=JSON.parse(localStorage.getItem('diceRank')||'[]');
+  let existente=rank.find(r=>r.nome===jogador.nome);
+  if(existente){ if(jogador.pontos>existente.pontos){ existente.pontos=jogador.pontos; existente.nivel=jogador.nivel; } }
+  else rank.push({nome:jogador.nome,pontos:jogador.pontos,nivel:jogador.nivel});
+  rank.sort((a,b)=>b.pontos-a.pontos); rank=rank.slice(0,10);
+  localStorage.setItem('diceRank',JSON.stringify(rank));
+}
+
+function verRanking(){
+  S.click();
+  const rank=JSON.parse(localStorage.getItem('diceRank')||'[]');
+  if(!rank.length) return document.getElementById('ranking').innerHTML='<p>Ninguém no ranking ainda. Seja o primeiro!</p>';
+  let html='<h3>🏆 TOP 10</h3>';
+  rank.forEach((j,i)=>{ const m=i==0?'🥇':i==1?'🥈':i==2?'🥉':`${i+1}º`; html+=`<p style="background:rgba(255,255,255,0.06);padding:8px;border-radius:8px">${m} ${j.nome} - ${j.pontos} pts (Nv ${j.nivel})</p>`; });
+  document.getElementById('ranking').innerHTML=html;
+}
+function resetar(){ if(confirm('Zerar tudo?')){ localStorage.removeItem('diceRank'); jogador.pontos=0; jogador.nivel=1; jogador.totalRolagens=0; atualizarUI(); document.getElementById('ranking').innerHTML=''; S.ruim(); } }
+</script>
+</body>
+</html>
